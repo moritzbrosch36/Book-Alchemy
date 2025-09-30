@@ -21,8 +21,13 @@ with app.app_context():
 
 def parse_iso_date(s: str):
     """
-    Converts 'YYYY-MM-DD' to datetime.date or None.
-    Returns None if s is empty. We catch invalid formats in the caller.
+    Convert a date string in 'YYYY-MM-DD' format to a datetime.date object.
+
+    Args:
+        s (str): Date string in ISO format (YYYY-MM-DD).
+
+    Returns:
+        datetime.date or None: Parsed date object, or None if input is empty or invalid.
     """
     if not s:
         return None
@@ -32,16 +37,27 @@ def parse_iso_date(s: str):
     except ValueError:
         return None
 
-# Home page
+
 @app.route("/", methods=["GET"])
 def home():
+    """
+    Render the home page with a list of books.
+
+    Supports sorting by book title or author name and keyword-based searching.
+
+    Query Parameters:
+        sort (str): Optional. Either "title" (default) or "author".
+        keyword (str): Optional. Search term for filtering books or authors.
+
+    Returns:
+        str: Rendered HTML template for the home page with books list.
+    """
     sort_by = request.args.get("sort", "title")
     keyword = request.args.get("keyword", "").strip()
 
     query = Book.query.join(Author)
 
     if keyword:
-        # Search by title or author name (case-insensitive LIKE)
         query = query.filter(
             or_(
                 Book.title.ilike(f"%{keyword}%"),
@@ -49,7 +65,6 @@ def home():
             )
         )
 
-    # Sorted
     if sort_by == "author":
         query = query.order_by(Author.name.asc())
     else:
@@ -60,9 +75,18 @@ def home():
     return render_template("home.html", books=books)
 
 
-# Add authors
 @app.route("/add_author", methods=["GET", "POST"])
 def add_author():
+    """
+    Display form for adding a new author and handle form submission.
+
+    Handles POST requests to validate and add an author to the database.
+    Validates birth date and date of death format (YYYY-MM-DD).
+    Displays error messages for missing name or invalid dates.
+
+    Returns:
+        str: Rendered HTML template for adding an author or redirects after submission.
+    """
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         b_raw = (request.form.get("birth_date") or "").strip()
@@ -75,7 +99,6 @@ def add_author():
         birth_date = parse_iso_date(b_raw)
         date_of_death = parse_iso_date(d_raw)
 
-        # If the user has entered something that is not a valid date, we will display an error message
         invalid = []
         if b_raw and birth_date is None:
             invalid.append("Birth Date")
@@ -100,9 +123,17 @@ def add_author():
     return render_template("add_author.html")
 
 
-# Add books
 @app.route("/add_book", methods=["GET", "POST"])
 def add_book():
+    """
+    Display form for adding a new book and handle form submission.
+
+    Handles POST requests to add a book to the database.
+    Requires ISBN, title, publication year, and author ID.
+
+    Returns:
+        str: Rendered HTML template for adding a book or redirects after submission.
+    """
     authors = Author.query.all()
 
     if request.method == "POST":
@@ -126,17 +157,24 @@ def add_book():
     return render_template("add_book.html", authors=authors)
 
 
-# Delete books
 @app.route("/book/<int:book_id>/delete", methods=["POST"])
 def delete_book(book_id):
+    """
+    Delete a book by ID and possibly its author if they have no other books.
+
+    Args:
+        book_id (int): ID of the book to be deleted.
+
+    Returns:
+        werkzeug.wrappers.Response: Redirect response to the home page with a success message.
+    """
     book = Book.query.get_or_404(book_id)
 
-    author = book.author  # Secure the author of the book
+    author = book.author
 
     db.session.delete(book)
     db.session.commit()
 
-    # Delete author if he has no more books
     if not author.books:
         db.session.delete(author)
         db.session.commit()
