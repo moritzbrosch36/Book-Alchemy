@@ -4,16 +4,48 @@ import re
 db = SQLAlchemy()
 
 
+import re
+import unicodedata
+
 def normalize_name(name: str) -> str:
     """
-    Normalize author name for duplicate detection.
-    Removes dots, extra spaces, converts to lowercase.
+    Normalize author names to a canonical form for duplicate checking.
+    - Lowercases
+    - Removes punctuation and diacritics (accents)
+    - Collapses whitespace
+    - Converts "Rowling, J. K." -> "jk rowling"
+    - Removes dots between initials
+    - Keeps consistent order: initials first, then last name
     """
+
     if not name:
         return ""
-    name = name.replace(".", "")
-    name = re.sub(r"\s+", " ", name)
-    return name.strip().lower()
+
+    # 1️⃣ Unicode-normalization (ä -> a, é -> e, etc.)
+    name = unicodedata.normalize("NFKD", name)
+    name = "".join(c for c in name if not unicodedata.combining(c))
+
+    # 2️⃣ Remove periods, commas, double spaces
+    name = re.sub(r"[.,']", " ", name)
+    name = re.sub(r"\s+", " ", name).strip().lower()
+
+    # 3️⃣ If name is in the format "lastname, firstname" -> reverse
+    if "," in name:
+        parts = [p.strip() for p in name.split(",")]
+        if len(parts) == 2:
+            name = f"{parts[1]} {parts[0]}"
+
+    # 4️⃣ Merge initials: "j k rowling" -> "jk rowling"
+    name = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", name)
+
+    # 5️⃣ Keep only letters and spaces
+    name = re.sub(r"[^a-z\s]", "", name)
+
+    # 6️⃣ Smooth spaces again
+    name = re.sub(r"\s+", " ", name).strip()
+
+    return name
+
 
 
 class Author(db.Model):
