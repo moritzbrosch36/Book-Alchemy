@@ -20,8 +20,17 @@ with app.app_context():
     db.create_all()
 """
 
+
 def parse_iso_date(s: str):
-    """Convert a date string in 'YYYY-MM-DD' format to a datetime.date object."""
+    """
+    Convert a date string in 'YYYY-MM-DD' format to a datetime.date object.
+
+    Args:
+        s (str): Date string in ISO format.
+
+    Returns:
+        date or None: Converted date object, or None if invalid.
+    """
     if not s:
         return None
     s = s.strip()
@@ -33,7 +42,18 @@ def parse_iso_date(s: str):
 
 @app.route("/", methods=["GET"])
 def home():
-    """Render the home page with a list of books."""
+    """
+    Render the home page listing all books.
+
+    Supports optional sorting and keyword searching.
+
+    Query parameters:
+        sort (str): "title" or "author" for sorting.
+        keyword (str): Search term to filter books/authors.
+
+    Returns:
+        Rendered HTML template "home.html".
+    """
     sort_by = request.args.get("sort", "title")
     keyword = request.args.get("keyword", "").strip()
 
@@ -59,7 +79,16 @@ def home():
 
 @app.route("/add_author", methods=["GET", "POST"])
 def add_author():
-    """Display form for adding a new author and handle form submission."""
+    """
+    Display a form to add a new author and handle form submission.
+
+    Validates input data, checks for duplicates, and inserts into the database.
+    Handles errors gracefully with flash messages.
+
+    Returns:
+        Rendered "add_author.html" on GET,
+        redirects to "add_author" on POST.
+    """
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         b_raw = (request.form.get("birth_date") or "").strip()
@@ -69,7 +98,6 @@ def add_author():
             flash("Name is required.", "error")
             return redirect(url_for("add_author"))
 
-        # ✅ Normalize the name for duplicate checking
         normalized_name = normalize_name(name)
         existing_author = Author.query.filter_by(normalized_name=normalized_name).first()
 
@@ -101,7 +129,6 @@ def add_author():
 
         db.session.add(new_author)
 
-        # ✅ Safe commit with error handling
         try:
             db.session.commit()
             flash(f"Author '{name}' successfully added!", "success")
@@ -116,7 +143,16 @@ def add_author():
 
 @app.route("/add_book", methods=["GET", "POST"])
 def add_book():
-    """Display form for adding a new book and handle form submission."""
+    """
+    Display a form to add a new book and handle form submission.
+
+    Validates ISBN, title, and author. Checks for duplicates and inserts into DB.
+    Handles errors with flash messages.
+
+    Returns:
+        Rendered "add_book.html" on GET,
+        redirects to "add_book" on POST.
+    """
     authors = Author.query.all()
 
     if request.method == "POST":
@@ -125,12 +161,10 @@ def add_book():
         publication_year = (request.form.get("publication_year") or "").strip()
         author_id = request.form.get("author_id")
 
-        # ✅ 1. Check mandatory fields
         if not isbn or not title or not author_id:
             flash("Please fill out all required fields (ISBN, Title, Author).", "error")
             return redirect(url_for("add_book"))
 
-        # ✅ 2. Check if ISBN already exists
         existing_book = Book.query.filter_by(isbn=isbn).first()
         if existing_book:
             flash(
@@ -140,7 +174,6 @@ def add_book():
             )
             return redirect(url_for("add_book"))
 
-        # ✅ 3. Create a new book
         new_book = Book(
             isbn=isbn,
             title=title,
@@ -150,7 +183,6 @@ def add_book():
 
         db.session.add(new_book)
 
-        # ✅ 4. Safe commit with error handling
         try:
             db.session.commit()
             flash(f"Book '{title}' successfully added!", "success")
@@ -165,7 +197,17 @@ def add_book():
 
 @app.route("/book/<int:book_id>/delete", methods=["POST"])
 def delete_book(book_id):
-    """Delete a book by ID and possibly its author if they have no other books."""
+    """
+    Delete a book by its ID.
+
+    If the book’s author has no other books, the author is also deleted.
+
+    Args:
+        book_id (int): ID of the book to delete.
+
+    Returns:
+        Redirect to the home page with a flash message.
+    """
     book = Book.query.get_or_404(book_id)
     author = book.author
 
@@ -183,4 +225,7 @@ def delete_book(book_id):
 
 
 if __name__ == "__main__":
+    """
+    Run the Flask application in debug mode.
+    """
     app.run(debug=True)
