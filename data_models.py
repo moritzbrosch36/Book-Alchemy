@@ -2,13 +2,14 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+
 class Author(db.Model):
     """
     Represents an author in the library system.
 
     Attributes:
         id (int): Primary key, unique identifier for the author.
-        name (str): Full name of the author.
+        name (str): Full name of the author (must be unique).
         birth_date (datetime.date): Birth date of the author (optional).
         date_of_death (datetime.date): Date of death of the author (optional).
         books (list[Book]): List of books written by the author.
@@ -16,7 +17,8 @@ class Author(db.Model):
     __tablename__ = "authors"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(120), nullable=False)
+    # ✅ Name is now unique
+    name = db.Column(db.String(120), nullable=False, unique=True)
     birth_date = db.Column(db.Date, nullable=True)
     date_of_death = db.Column(db.Date, nullable=True)
 
@@ -38,7 +40,9 @@ class Author(db.Model):
         Returns:
             str: Author's name with birth and death dates.
         """
-        return f"{self.name} ({self.birth_date} - {self.date_of_death})"
+        birth = self.birth_date.strftime("%Y-%m-%d") if self.birth_date else "?"
+        death = self.date_of_death.strftime("%Y-%m-%d") if self.date_of_death else "?"
+        return f"{self.name} ({birth} - {death})"
 
 
 class Book(db.Model):
