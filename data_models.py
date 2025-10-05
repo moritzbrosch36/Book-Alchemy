@@ -1,6 +1,19 @@
 from flask_sqlalchemy import SQLAlchemy
+import re
 
 db = SQLAlchemy()
+
+
+def normalize_name(name: str) -> str:
+    """
+    Normalize author name for duplicate detection.
+    Removes dots, extra spaces, converts to lowercase.
+    """
+    if not name:
+        return ""
+    name = name.replace(".", "")
+    name = re.sub(r"\s+", " ", name)
+    return name.strip().lower()
 
 
 class Author(db.Model):
@@ -19,6 +32,7 @@ class Author(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     # ✅ Name is now unique
     name = db.Column(db.String(120), nullable=False, unique=True)
+    normalize_name = db.Column(db.String(120), nullable=False, unique=True)
     birth_date = db.Column(db.Date, nullable=True)
     date_of_death = db.Column(db.Date, nullable=True)
 
