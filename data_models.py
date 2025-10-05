@@ -47,7 +47,6 @@ def normalize_name(name: str) -> str:
     return name
 
 
-
 class Author(db.Model):
     """
     Represents an author in the library system.

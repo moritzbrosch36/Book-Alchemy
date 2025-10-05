@@ -120,21 +120,44 @@ def add_book():
     authors = Author.query.all()
 
     if request.method == "POST":
-        isbn = request.form.get("isbn")
-        title = request.form.get("title")
-        publication_year = request.form.get("publication_year")
+        isbn = (request.form.get("isbn") or "").strip()
+        title = (request.form.get("title") or "").strip()
+        publication_year = (request.form.get("publication_year") or "").strip()
         author_id = request.form.get("author_id")
 
+        # ✅ 1. Check mandatory fields
+        if not isbn or not title or not author_id:
+            flash("Please fill out all required fields (ISBN, Title, Author).", "error")
+            return redirect(url_for("add_book"))
+
+        # ✅ 2. Check if ISBN already exists
+        existing_book = Book.query.filter_by(isbn=isbn).first()
+        if existing_book:
+            flash(
+                f"The ISBN '{isbn}' already exists and belongs to "
+                f"'{existing_book.title}' by {existing_book.author.name}.",
+                "error"
+            )
+            return redirect(url_for("add_book"))
+
+        # ✅ 3. Create a new book
         new_book = Book(
             isbn=isbn,
             title=title,
-            publication_year=publication_year,
+            publication_year=publication_year or None,
             author_id=author_id,
         )
-        db.session.add(new_book)
-        db.session.commit()
 
-        flash(f"Book '{title}' successfully added!", "success")
+        db.session.add(new_book)
+
+        # ✅ 4. Safe commit with error handling
+        try:
+            db.session.commit()
+            flash(f"Book '{title}' successfully added!", "success")
+        except IntegrityError:
+            db.session.rollback()
+            flash(f"A database error occurred. The ISBN '{isbn}' may already exist.", "error")
+
         return redirect(url_for("add_book"))
 
     return render_template("add_book.html", authors=authors)
