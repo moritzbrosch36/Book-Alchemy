@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date
 import os
@@ -10,19 +11,17 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(basedir, 'data/library.sqlite')}"
 app.secret_key = "supersecretkey"  # necessary for flash messages
 
-from data_models import db, Author, Book
+from data_models import db, Author, Book, normalize_name
 
 db.init_app(app)
 
-"""
+
 with app.app_context():
     db.create_all()
-"""
+
 
 def parse_iso_date(s: str):
-    """
-    Convert a date string in 'YYYY-MM-DD' format to a datetime.date object.
-    """
+    """Convert a date string in 'YYYY-MM-DD' format to a datetime.date object."""
     if not s:
         return None
     s = s.strip()
@@ -34,9 +33,7 @@ def parse_iso_date(s: str):
 
 @app.route("/", methods=["GET"])
 def home():
-    """
-    Render the home page with a list of books.
-    """
+    """Render the home page with a list of books."""
     sort_by = request.args.get("sort", "title")
     keyword = request.args.get("keyword", "").strip()
 
@@ -62,9 +59,7 @@ def home():
 
 @app.route("/add_author", methods=["GET", "POST"])
 def add_author():
-    """
-    Display form for adding a new author and handle form submission.
-    """
+    """Display form for adding a new author and handle form submission."""
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         b_raw = (request.form.get("birth_date") or "").strip()
@@ -74,10 +69,12 @@ def add_author():
             flash("Name is required.", "error")
             return redirect(url_for("add_author"))
 
-        # ✅ Option 1: Check for duplicate author name
-        existing_author = Author.query.filter_by(name=name).first()
+        # ✅ Normalize the name for duplicate checking
+        normalized_name = normalize_name(name)
+        existing_author = Author.query.filter_by(normalized_name=normalized_name).first()
+
         if existing_author:
-            flash(f"Author '{name}' already exists.", "error")
+            flash(f"Author '{existing_author.name}' already exists.", "error")
             return redirect(url_for("add_author"))
 
         birth_date = parse_iso_date(b_raw)
@@ -89,19 +86,29 @@ def add_author():
         if d_raw and date_of_death is None:
             invalid.append("Date of Death")
         if invalid:
-            flash(f"Invalid date for: {', '.join(invalid)}. "
-                  f"Please use the format YYYY-MM-DD.", "error")
+            flash(
+                f"Invalid date for: {', '.join(invalid)}. Please use the format YYYY-MM-DD.",
+                "error"
+            )
             return redirect(url_for("add_author"))
 
         new_author = Author(
             name=name,
+            normalized_name=normalized_name,
             birth_date=birth_date,
             date_of_death=date_of_death,
         )
-        db.session.add(new_author)
-        db.session.commit()
 
-        flash(f"Author '{name}' successfully added!", "success")
+        db.session.add(new_author)
+
+        # ✅ Safe commit with error handling
+        try:
+            db.session.commit()
+            flash(f"Author '{name}' successfully added!", "success")
+        except IntegrityError:
+            db.session.rollback()
+            flash(f"Author '{name}' already exists in the database.", "error")
+
         return redirect(url_for("add_author"))
 
     return render_template("add_author.html")
@@ -109,9 +116,7 @@ def add_author():
 
 @app.route("/add_book", methods=["GET", "POST"])
 def add_book():
-    """
-    Display form for adding a new book and handle form submission.
-    """
+    """Display form for adding a new book and handle form submission."""
     authors = Author.query.all()
 
     if request.method == "POST":
@@ -137,9 +142,7 @@ def add_book():
 
 @app.route("/book/<int:book_id>/delete", methods=["POST"])
 def delete_book(book_id):
-    """
-    Delete a book by ID and possibly its author if they have no other books.
-    """
+    """Delete a book by ID and possibly its author if they have no other books."""
     book = Book.query.get_or_404(book_id)
     author = book.author
 
