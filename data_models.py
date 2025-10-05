@@ -32,7 +32,7 @@ class Author(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     # ✅ Name is now unique
     name = db.Column(db.String(120), nullable=False, unique=True)
-    normalize_name = db.Column(db.String(120), nullable=False, unique=True)
+    normalized_name = db.Column(db.String(120), nullable=False, unique=True)
     birth_date = db.Column(db.Date, nullable=True)
     date_of_death = db.Column(db.Date, nullable=True)
 
