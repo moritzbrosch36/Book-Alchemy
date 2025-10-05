@@ -22,12 +22,6 @@ with app.app_context():
 def parse_iso_date(s: str):
     """
     Convert a date string in 'YYYY-MM-DD' format to a datetime.date object.
-
-    Args:
-        s (str): Date string in ISO format (YYYY-MM-DD).
-
-    Returns:
-        datetime.date or None: Parsed date object, or None if input is empty or invalid.
     """
     if not s:
         return None
@@ -42,15 +36,6 @@ def parse_iso_date(s: str):
 def home():
     """
     Render the home page with a list of books.
-
-    Supports sorting by book title or author name and keyword-based searching.
-
-    Query Parameters:
-        sort (str): Optional. Either "title" (default) or "author".
-        keyword (str): Optional. Search term for filtering books or authors.
-
-    Returns:
-        str: Rendered HTML template for the home page with books list.
     """
     sort_by = request.args.get("sort", "title")
     keyword = request.args.get("keyword", "").strip()
@@ -79,13 +64,6 @@ def home():
 def add_author():
     """
     Display form for adding a new author and handle form submission.
-
-    Handles POST requests to validate and add an author to the database.
-    Validates birth date and date of death format (YYYY-MM-DD).
-    Displays error messages for missing name or invalid dates.
-
-    Returns:
-        str: Rendered HTML template for adding an author or redirects after submission.
     """
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
@@ -94,6 +72,12 @@ def add_author():
 
         if not name:
             flash("Name is required.", "error")
+            return redirect(url_for("add_author"))
+
+        # ✅ Option 1: Check for duplicate author name
+        existing_author = Author.query.filter_by(name=name).first()
+        if existing_author:
+            flash(f"Author '{name}' already exists.", "error")
             return redirect(url_for("add_author"))
 
         birth_date = parse_iso_date(b_raw)
@@ -127,12 +111,6 @@ def add_author():
 def add_book():
     """
     Display form for adding a new book and handle form submission.
-
-    Handles POST requests to add a book to the database.
-    Requires ISBN, title, publication year, and author ID.
-
-    Returns:
-        str: Rendered HTML template for adding a book or redirects after submission.
     """
     authors = Author.query.all()
 
@@ -161,15 +139,8 @@ def add_book():
 def delete_book(book_id):
     """
     Delete a book by ID and possibly its author if they have no other books.
-
-    Args:
-        book_id (int): ID of the book to be deleted.
-
-    Returns:
-        werkzeug.wrappers.Response: Redirect response to the home page with a success message.
     """
     book = Book.query.get_or_404(book_id)
-
     author = book.author
 
     db.session.delete(book)
