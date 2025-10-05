@@ -15,10 +15,10 @@ from data_models import db, Author, Book, normalize_name
 
 db.init_app(app)
 
-
+"""
 with app.app_context():
     db.create_all()
-
+"""
 
 def parse_iso_date(s: str):
     """Convert a date string in 'YYYY-MM-DD' format to a datetime.date object."""
