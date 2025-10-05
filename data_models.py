@@ -1,8 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
-import re
 
 db = SQLAlchemy()
-
 
 import re
 import unicodedata
